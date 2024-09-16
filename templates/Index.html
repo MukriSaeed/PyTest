@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rudaw Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Include CSS for typing animation */
+        .typing {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #333;
+            animation: typingAnimation 1.2s infinite ease-in-out both;
+        }
+
+        .typing:nth-child(2) {
+            animation-delay: 1.2s;
+        }
+
+        .typing:nth-child(3) {
+            animation-delay: 1.4s;
+        }
+
+        @keyframes typingAnimation {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chatbot-container" style="width: 350px;">
+        <div class="chat-header" dir="rtl">
+            <h1>چاتبۆتی ڕووداو میدیا</h1>
+            <button id="toggle-btn">&#9660;</button>
+        </div>
+        <div class="chat-container" dir="rtl">
+            <div id="chat-box" class="chat-box"></div>
+            <div class="chat-input" dir="rtl">
+                <textarea id="user-input" maxlength="250" placeholder="تەنها ٢٥٠ پیت ڕێگەپێدراوە"></textarea>
+                <button id="send-btn">ناردن</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function sendMessage() {
+            var userInput = document.getElementById('user-input').value;
+            if (userInput.trim() === "") return;
+    
+            var chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML += "<div><strong>تۆ:</strong> " + userInput + "</div>";
+            chatBox.scrollTop = chatBox.scrollHeight;
+    
+            var typingIndicator = document.createElement('div');
+            typingIndicator.className = 'typing-indicator';
+            typingIndicator.innerHTML = "<div class='typing'></div><div class='typing'></div><div class='typing'></div>";
+            chatBox.appendChild(typingIndicator);
+            chatBox.scrollTop = chatBox.scrollHeight;
+    
+            // Create a container for the streaming response
+            var responseContainer = document.createElement('div');
+            responseContainer.innerHTML = "<strong>ڕوداوو:</strong> ";
+            chatBox.appendChild(responseContainer);
+            chatBox.scrollTop = chatBox.scrollHeight;
+    
+            // Fetch and process the streaming response
+            fetch('/get_response', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'user_input=' + encodeURIComponent(userInput)
+            })
+            .then(response => {
+                const reader = response.body.getReader();
+                let decoder = new TextDecoder("utf-8");
+    
+                return reader.read().then(function processText({ done, value }) {
+                    if (done) {
+                        chatBox.removeChild(typingIndicator); // Remove typing indicator when done
+                        return;
+                    }
+    
+                    // Decode the response chunks and append them to the same message container
+                    responseContainer.innerHTML += decoder.decode(value, { stream: true });
+                    chatBox.scrollTop = chatBox.scrollHeight;
+    
+                    // Continue reading the next chunk
+                    return reader.read().then(processText);
+                });
+            });
+    
+            document.getElementById('user-input').value = "";
+        }
+    
+        document.getElementById('send-btn').addEventListener('click', sendMessage);
+    
+        document.getElementById('user-input').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+    
+        document.getElementById('toggle-btn').addEventListener('click', function() {
+            var chatContainer = document.querySelector('.chat-container');
+            var toggleBtn = document.getElementById('toggle-btn');
+    
+            if (chatContainer.style.display === 'none') {
+                chatContainer.style.display = 'flex';
+                toggleBtn.innerHTML = '&#9660;';
+            } else {
+                chatContainer.style.display = 'none';
+                toggleBtn.innerHTML = '&#9650;';
+            }
+        });
+    </script>
+    
+
+</body>
+</html>
