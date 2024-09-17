@@ -1,6 +1,6 @@
 import os
 import time
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify , send_from_directory
 import anthropic
 from pinecone import Pinecone
 from voyageai import Client as VoyageAI
@@ -8,12 +8,19 @@ import html
 import random
 import json
 
-app = Flask(__name__)
+# app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
+app.add_url_rule('/script/<path:filename>', endpoint='script', view_func=app.send_static_file)
+# app.template_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
 
 # Initialize clients
-anthropic_client = anthropic.Anthropic(api_key="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")
-pinecone_client = Pinecone(api_key="f5e0f9cf-5048-47cb-a238-ea15d48882e4")
-voyage_client = VoyageAI(api_key="pa-W1QI5-5P_5MIyhzaygsc5IvAlie0XnMs4GShyMi_7jg")
+# anthropic_client = anthropic.Anthropic(api_key="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")
+# pinecone_client = Pinecone(api_key="f5e0f9cf-5048-47cb-a238-ea15d48882e4")
+# voyage_client = VoyageAI(api_key="pa-W1QI5-5P_5MIyhzaygsc5IvAlie0XnMs4GShyMi_7jg")
+
+anthropic_client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
+pinecone_client = Pinecone(api_key=os.environ.get('PINECONE_API_KEY'))
+voyage_client = VoyageAI(api_key=os.environ.get('VOYAGE_API_KEY'))
 
 index_name = "englishvector"
 index = pinecone_client.Index(index_name)
@@ -124,6 +131,14 @@ def generate_response_from_articles(articles, user_input):
 def home():
     return render_template('index.html')
 
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(app.static_folder, filename)
+
+@app.route('/script/<path:filename>')
+def serve_script(filename):
+    return send_from_directory('script', filename)
+
 @app.route('/get_response', methods=['POST'])
 def get_response():
     user_input = request.form['user_input']
@@ -164,4 +179,4 @@ def get_response():
         })
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
